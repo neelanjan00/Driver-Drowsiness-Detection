@@ -6,4 +6,4 @@ The software runs on Python and primarily uses OpenCV to perform the head pose e
 
 1. Install the python packages mentioned in 'Requirements.txt' file via the command "pip install -r Requirements.txt"
 2. Execute the program through the CLI command "python Driver\ Drowsiness\ Detection.py"
-3. Press 'cmd/ctrl + c' to stop the program execution
+3. Press the 'Q' key to stop the program execution
