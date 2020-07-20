@@ -9,6 +9,9 @@ import dlib
 import math
 from cv2 import cv2
 import numpy as np
+from EAR import eye_aspect_ratio
+from MAR import mouth_aspect_ratio
+from HeadPose import getHeadTiltAndCoords
 
 # initialize dlib's face detector (HOG-based) and then create the
 # facial landmark predictor
@@ -21,16 +24,13 @@ predictor = dlib.shape_predictor(
 # camera sensor to warm up
 print("[INFO] initializing camera...")
 
-vs = VideoStream(src=0).start()
+vs = VideoStream(src=1).start()
 # vs = VideoStream(usePiCamera=True).start() # Raspberry Pi
 time.sleep(2.0)
 
 # 400x225 to 1024x576
 frame_width = 1024
 frame_height = 576
-
-# Define the codec and create VideoWriter object.The output is stored in 'outpy.avi' file.
-#out = cv2.VideoWriter('outpy.avi',cv2.VideoWriter_fourcc('M','J','P','G'), 30, (frame_width,frame_height))
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -42,81 +42,6 @@ image_points = np.array([
     (345, 465),     # Left Mouth corner 49
     (453, 469)      # Right mouth corner 55
 ], dtype="double")
-
-# 3D model points.
-model_points = np.array([
-    (0.0, 0.0, 0.0),             # Nose tip 34
-    (0.0, -330.0, -65.0),        # Chin 9
-    (-225.0, 170.0, -135.0),     # Left eye left corner 37
-    (225.0, 170.0, -135.0),      # Right eye right corne 46
-    (-150.0, -150.0, -125.0),    # Left Mouth corner 49
-    (150.0, -150.0, -125.0)      # Right mouth corner 55
-
-])
-
-
-# Checks if a matrix is a valid rotation matrix.
-def isRotationMatrix(R):
-    Rt = np.transpose(R)
-    shouldBeIdentity = np.dot(Rt, R)
-    I = np.identity(3, dtype=R.dtype)
-    n = np.linalg.norm(I - shouldBeIdentity)
-    return n < 1e-6
-
-
-# Calculates rotation matrix to euler angles
-# The result is the same as MATLAB except the order
-# of the euler angles ( x and z are swapped ).
-def rotationMatrixToEulerAngles(R):
-
-    assert(isRotationMatrix(R))
-
-    sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
-
-    singular = sy < 1e-6
-
-    if not singular:
-        x = math.atan2(R[2, 1], R[2, 2])
-        y = math.atan2(-R[2, 0], sy)
-        z = math.atan2(R[1, 0], R[0, 0])
-    else:
-        x = math.atan2(-R[1, 2], R[1, 1])
-        y = math.atan2(-R[2, 0], sy)
-        z = 0
-
-    return np.array([x, y, z])
-
-
-def eye_aspect_ratio(eye):
-    # compute the euclidean distances between the two sets of
-    # vertical eye landmarks (x, y)-coordinates
-    A = dist.euclidean(eye[1], eye[5])
-    B = dist.euclidean(eye[2], eye[4])
-    # compute the euclidean distance between the horizontal
-    # eye landmark (x, y)-coordinates
-    C = dist.euclidean(eye[0], eye[3])
-    # compute the eye aspect ratio
-    ear = (A + B) / (2.0 * C)
-    # return the eye aspect ratio
-    return ear
-
-
-def mouth_aspect_ratio(mouth):
-    # compute the euclidean distances between the two sets of
-    # vertical mouth landmarks (x, y)-coordinates
-    A = dist.euclidean(mouth[2], mouth[10])  # 51, 59
-    B = dist.euclidean(mouth[4], mouth[8])  # 53, 57
-
-    # compute the euclidean distance between the horizontal
-    # mouth landmark (x, y)-coordinates
-    C = dist.euclidean(mouth[0], mouth[6])  # 49, 55
-
-    # compute the mouth aspect ratio
-    mar = (A + B) / (2.0 * C)
-
-    # return the mouth aspect ratio
-    return mar
-
 
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
@@ -180,8 +105,8 @@ while True:
         # threshold, and if so, increment the blink frame counter
         if ear < EYE_AR_THRESH:
             COUNTER += 1
-            # if the eyes were closed for a sufficient number of
-            # then sound the alarm
+            # if the eyes were closed for a sufficient number of times
+            # then show the warning
             if COUNTER >= EYE_AR_CONSEC_FRAMES:
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
@@ -272,39 +197,15 @@ while True:
                 cv2.putText(frame, str(i + 1), (x - 10, y - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
 
-        focal_length = size[1]
-        center = (size[1]/2, size[0]/2)
-        camera_matrix = np.array([[focal_length, 0, center[0]], [
-                                 0, focal_length, center[1]], [0, 0, 1]], dtype="double")
-
-        # print "Camera Matrix :\n {0}".format(camera_matrix)
-
-        dist_coeffs = np.zeros((4, 1))  # Assuming no lens distortion
-        (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points,
-                                                                      camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)  # flags=cv2.CV_ITERATIVE)
-
-        # print "Rotation Vector:\n {0}".format(rotation_vector)
-        # print "Translation Vector:\n {0}".format(translation_vector)
-        # Project a 3D point (0, 0 , 1000.0) onto the image plane
-        # We use this to draw a line sticking out of the nose_end_point2D
-        (nose_end_point2D, jacobian) = cv2.projectPoints(np.array(
-            [(0.0, 0.0, 1000.0)]), rotation_vector, translation_vector, camera_matrix, dist_coeffs)
-
+        #Draw the determinant image points onto the person's face
         for p in image_points:
             cv2.circle(frame, (int(p[0]), int(p[1])), 3, (0, 0, 255), -1)
 
-        p1 = (int(image_points[0][0]), int(image_points[0][1]))
-        p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+        (head_tilt_degree, start_point, end_point, 
+            end_point_alt) = getHeadTiltAndCoords(size, image_points, frame_height)
 
-        p2_alt = (p2[0], frame_height // 2)
-
-        cv2.line(frame, p1, p2, (255, 0, 0), 2)
-        cv2.line(frame, p1, p2_alt, (0, 0, 255), 2)
-
-        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-
-        head_tilt_degree = abs(
-            [-180] - np.rad2deg([rotationMatrixToEulerAngles(rotation_matrix)[0]]))
+        cv2.line(frame, start_point, end_point, (255, 0, 0), 2)
+        cv2.line(frame, start_point, end_point_alt, (0, 0, 255), 2)
 
         if head_tilt_degree:
             cv2.putText(frame, 'Head Tilt Degree: ' + str(head_tilt_degree[0]), (170, 20),
