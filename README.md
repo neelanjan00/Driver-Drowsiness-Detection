@@ -1,5 +1,5 @@
 # Driver-Drowsiness-Detection
-A computer vision based system for real-time drowsiness detection for drivers using head pose estimation, eye status (open or closed) and yawn detection to alarm the driver.
+A real-time drowsiness detection system for drivers, which alerts the driver if they fall asleep due to fatigue while still driving. The computer vision algorithm used for the implementation uses a trifold approach to detect drowsiness, including the measurement of forward head tilt angle, measurement of eye aspect ratio (to detect closure of eyes) and measurement of mouth aspect ratio (to detect yawning).
 
 ## Installation
 The software runs on Python and primarily uses OpenCV to perform the head pose estimation and Dlib for facial feature landmark detection.
