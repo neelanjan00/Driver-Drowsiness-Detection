@@ -2,6 +2,6 @@ imutils==0.5.3
 opencv-contrib-python==4.2.0.34
 opencv-python==4.2.0.34
 dlib==19.20.0
-numpy==1.17.3
+numpy==1.22.0
 cmake==3.18.0
 scipy==1.5.1
