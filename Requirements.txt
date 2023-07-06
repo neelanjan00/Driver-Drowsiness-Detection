@@ -4,4 +4,4 @@ opencv-python==4.2.0.34
 dlib==19.20.0
 numpy==1.22.0
 cmake==3.18.0
-scipy==1.5.1
+scipy==1.10.0
